@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家庭体重记录</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(90deg, #6a11cb, #2575fc);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+        
+        .app-description {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .nav {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .nav-item.active {
+            color: #2575fc;
+            border-bottom: 3px solid #2575fc;
+        }
+        
+        .content {
+            padding: 20px;
+            min-height: 400px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #444;
+        }
+        
+        select, input, button {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        
+        button {
+            background: linear-gradient(90deg, #6a11cb, #2575fc);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .date-input {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .date-input input {
+            flex: 1;
+        }
+        
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .toggle-option {
+            flex: 1;
+            text-align: center;
+            padding: 12px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .toggle-option.active {
+            background: #2575fc;
+            color: white;
+        }
+        
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-controls select {
+            flex: 1;
+        }
+        
+        .member-toggle {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .member-btn {
+            padding: 10px 15px;
+            background: #f0f0f0;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .member-btn.active {
+            background: #2575fc;
+            color: white;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .data-table th:hover {
+            background-color: #e9ecef;
+        }
+        
+        .data-table th.active {
+            color: #2575fc;
+        }
+        
+        .data-table th.active::after {
+            content: '';
+            display: inline-block;
+            margin-left: 5px;
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 5px solid #2575fc;
+        }
+        
+        .data-table th.active.desc::after {
+            border-top: none;
+            border-bottom: 5px solid #2575fc;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .action-btn {
+            color: #2575fc;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .sort-indicator {
+            margin-left: 5px;
+            font-size: 12px;
+        }
+        
+        .database-setup {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .database-setup.active {
+            display: block;
+        }
+        
+        .db-toggle {
+            text-align: center;
+            margin-top: 15px;
+            color: #2575fc;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                border-radius: 15px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .nav-item {
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            select, input, button {
+                padding: 12px;
+            }
+            
+            .toggle-option, .member-btn {
+                padding: 10px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>家庭体重记录</h1>
+            <p class="app-description">记录健康，关爱家人</p>
+        </header>
+        
+        <div class="nav">
+            <div class="nav-item active" data-tab="record">记录体重</div>
+            <div class="nav-item" data-tab="view">查看数据</div>
+            <div class="nav-item" data-tab="charts">图表分析</div>
+        </div>
+        
+        <div class="content">
+            <!-- 记录体重标签页 -->
+            <div class="tab-content active" id="record">
+                <div class="input-group">
+                    <label>选择家庭成员</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-member="石">石</div>
+                        <div class="toggle-option" data-member="远">远</div>
+                        <div class="toggle-option" data-member="曲">曲</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>选择日期</label>
+                    <div class="date-input">
+                        <input type="date" id="date" value="">
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>选择时间段</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-time="morning">早晨</div>
+                        <div class="toggle-option" data-time="evening">晚上</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>体重（斤）</label>
+                    <input type="number" id="weight" step="0.1" min="0" placeholder="例如：160.1">
+                </div>
+                
+                <button id="save-btn">保存记录</button>
+                
+                <div class="db-toggle" id="db-toggle">使用在线数据库保存数据</div>
+                
+                <div class="database-setup" id="database-setup">
+                    <div class="input-group">
+                        <label>Supabase项目URL</label>
+                        <input type="text" id="supabase-url" placeholder="https://your-project.supabase.co">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>Supabase API密钥</label>
+                        <input type="password" id="supabase-key" placeholder="您的API密钥">
+                    </div>
+                    
+                    <button id="save-db-config">保存数据库配置</button>
+                </div>
+            </div>
+            
+            <!-- 查看数据标签页 -->
+            <div class="tab-content" id="view">
+                <div class="input-group">
+                    <label>选择要查看的家庭成员</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-view-member="all">所有成员</div>
+                        <div class="toggle-option" data-view-member="石">石</div>
+                        <div class="toggle-option" data-view-member="远">远</div>
+                        <div class="toggle-option" data-view-member="曲">曲</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>排序方式</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-sort="date-desc">日期↓</div>
+                        <div class="toggle-option" data-sort="date-asc">日期↑</div>
+                        <div class="toggle-option" data-sort="time-desc">时间段↓</div>
+                        <div class="toggle-option" data-sort="time-asc">时间段↑</div>
+                    </div>
+                </div>
+                
+                <div id="data-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="date">日期</th>
+                                <th data-sort="time">时间段</th>
+                                <th>成员</th>
+                                <th>体重(斤)</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-body">
+                            <!-- 数据将通过JavaScript动态添加 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 图表分析标签页 -->
+            <div class="tab-content" id="charts">
+                <div class="input-group">
+                    <label>选择时间范围</label>
+                    <select id="chart-range">
+                        <option value="7">最近7天</option>
+                        <option value="14">最近14天</option>
+                        <option value="30">最近30天</option>
+                        <option value="90">最近3个月</option>
+                    </select>
+                </div>
+                
+                <div class="input-group">
+                    <label>选择数据显示</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-weight-type="average">平均体重</div>
+                        <div class="toggle-option" data-weight-type="morning">早上体重</div>
+                        <div class="toggle-option" data-weight-type="evening">晚上体重</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>选择家庭成员</label>
+                    <div class="toggle-group">
+                        <div class="toggle-option active" data-chart-member="all">所有成员</div>
+                        <div class="toggle-option" data-chart-member="石">石</div>
+                        <div class="toggle-option" data-chart-member="远">远</div>
+                        <div class="toggle-option" data-chart-member="曲">曲</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="weight-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始化数据
+        let weightData = JSON.parse(localStorage.getItem('familyWeightData')) || [];
+        
+        // 当前排序方式
+        let currentSort = 'date-desc';
+        
+        // Supabase客户端
+        let supabase = null;
+        
+        // 设置默认日期为今天
+        document.getElementById('date').valueAsDate = new Date();
+        
+        // 检查是否有保存的数据库配置
+        const supabaseUrl = localStorage.getItem('supabaseUrl');
+        const supabaseKey = localStorage.getItem('supabaseKey');
+        
+        if (supabaseUrl && supabaseKey) {
+            document.getElementById('supabase-url').value = supabaseUrl;
+            document.getElementById('supabase-key').value = supabaseKey;
+            initSupabase(supabaseUrl, supabaseKey);
+        }
+        
+        // 数据库配置切换
+        document.getElementById('db-toggle').addEventListener('click', function() {
+            const dbSetup = document.getElementById('database-setup');
+            dbSetup.classList.toggle('active');
+        });
+        
+        // 保存数据库配置
+        document.getElementById('save-db-config').addEventListener('click', function() {
+            const url = document.getElementById('supabase-url').value;
+            const key = document.getElementById('supabase-key').value;
+            
+            if (!url || !key) {
+                alert('请填写完整的数据库配置信息');
+                return;
+            }
+            
+            localStorage.setItem('supabaseUrl', url);
+            localStorage.setItem('supabaseKey', key);
+            
+            initSupabase(url, key);
+            alert('数据库配置已保存！');
+        });
+        
+        // 初始化Supabase
+        function initSupabase(url, key) {
+            supabase = window.supabase.createClient(url, key);
+            console.log('Supabase初始化成功');
+            
+            // 尝试从远程数据库加载数据
+            loadDataFromSupabase();
+        }
+        
+        // 从Supabase加载数据
+        async function loadDataFromSupabase() {
+            if (!supabase) return;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('weight_records')
+                    .select('*')
+                    .order('date', { ascending: false });
+                
+                if (error) {
+                    console.error('从Supabase加载数据出错:', error);
+                    return;
+                }
+                
+                // 转换数据格式
+                weightData = data.map(item => ({
+                    date: item.date,
+                    time: item.time_period,
+                    member: item.member,
+                    weight: item.weight,
+                    id: item.id
+                }));
+                
+                // 保存到本地存储
+                localStorage.setItem('familyWeightData', JSON.stringify(weightData));
+                
+                // 刷新界面
+                if (document.getElementById('view').classList.contains('active')) {
+                    renderDataTable();
+                } else if (document.getElementById('charts').classList.contains('active')) {
+                    renderChart();
+                }
+                
+                console.log('从Supabase成功加载数据');
+            } catch (err) {
+                console.error('从Supabase加载数据失败:', err);
+            }
+        }
+        
+        // 保存数据到Supabase
+        async function saveDataToSupabase(record, isUpdate = false) {
+            if (!supabase) return;
+            
+            try {
+                let error;
+                
+                if (isUpdate) {
+                    // 更新现有记录
+                    const { error: updateError } = await supabase
+                        .from('weight_records')
+                        .update({
+                            date: record.date,
+                            time_period: record.time,
+                            member: record.member,
+                            weight: record.weight
+                        })
+                        .eq('id', record.id);
+                    
+                    error = updateError;
+                } else {
+                    // 插入新记录
+                    const { error: insertError } = await supabase
+                        .from('weight_records')
+                        .insert([
+                            {
+                                date: record.date,
+                                time_period: record.time,
+                                member: record.member,
+                                weight: record.weight
+                            }
+                        ]);
+                    
+                    error = insertError;
+                }
+                
+                if (error) {
+                    console.error('保存到Supabase出错:', error);
+                    return false;
+                }
+                
+                console.log('数据成功保存到Supabase');
+                return true;
+            } catch (err) {
+                console.error('保存到Supabase失败:', err);
+                return false;
+            }
+        }
+        
+        // 从Supabase删除记录
+        async function deleteDataFromSupabase(recordId) {
+            if (!supabase) return false;
+            
+            try {
+                const { error } = await supabase
+                    .from('weight_records')
+                    .delete()
+                    .eq('id', recordId);
+                
+                if (error) {
+                    console.error('从Supabase删除记录出错:', error);
+                    return false;
+                }
+                
+                console.log('记录成功从Supabase删除');
+                return true;
+            } catch (err) {
+                console.error('从Supabase删除记录失败:', err);
+                return false;
+            }
+        }
+        
+        // 导航切换
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                
+                this.classList.add('active');
+                document.getElementById(this.getAttribute('data-tab')).classList.add('active');
+                
+                // 如果切换到查看数据或图表标签，刷新数据
+                if (this.getAttribute('data-tab') === 'view') {
+                    renderDataTable();
+                } else if (this.getAttribute('data-tab') === 'charts') {
+                    renderChart();
+                }
+            });
+        });
+        
+        // 记录页面成员切换
+        document.querySelectorAll('#record .toggle-option[data-member]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#record .toggle-option[data-member]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // 记录页面时间段切换
+        document.querySelectorAll('#record .toggle-option[data-time]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#record .toggle-option[data-time]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // 查看页面成员切换
+        document.querySelectorAll('#view .toggle-option[data-view-member]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#view .toggle-option[data-view-member]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                renderDataTable();
+            });
+        });
+        
+        // 查看页面排序切换
+        document.querySelectorAll('#view .toggle-option[data-sort]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#view .toggle-option[data-sort]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                currentSort = this.getAttribute('data-sort');
+                renderDataTable();
+            });
+        });
+        
+        // 图表页面成员切换
+        document.querySelectorAll('#charts .toggle-option[data-chart-member]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#charts .toggle-option[data-chart-member]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                renderChart();
+            });
+        });
+        
+        // 图表页面体重类型切换
+        document.querySelectorAll('#charts .toggle-option[data-weight-type]').forEach(option => {
+            option.addEventListener('click', function() {
+                document.querySelectorAll('#charts .toggle-option[data-weight-type]').forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+                renderChart();
+            });
+        });
+        
+        // 保存体重记录
+        document.getElementById('save-btn').addEventListener('click', async function() {
+            const member = document.querySelector('#record .toggle-option[data-member].active').getAttribute('data-member');
+            const date = document.getElementById('date').value;
+            const time = document.querySelector('#record .toggle-option[data-time].active').getAttribute('data-time');
+            const weight = parseFloat(document.getElementById('weight').value);
+            
+            if (!date) {
+                alert('请选择日期');
+                return;
+            }
+            
+            if (isNaN(weight) || weight <= 0) {
+                alert('请输入有效的体重值');
+                return;
+            }
+            
+            // 检查是否已存在相同日期、相同时间段、相同成员的记录
+            const existingIndex = weightData.findIndex(entry => 
+                entry.date === date && entry.time === time && entry.member === member
+            );
+            
+            let isUpdate = existingIndex !== -1;
+            
+            if (isUpdate) {
+                // 更新现有记录
+                weightData[existingIndex].weight = weight;
+            } else {
+                // 添加新记录
+                weightData.push({
+                    date,
+                    time,
+                    member,
+                    weight
+                });
+            }
+            
+            // 保存到localStorage
+            localStorage.setItem('familyWeightData', JSON.stringify(weightData));
+            
+            // 如果配置了Supabase，也保存到远程数据库
+            if (supabase) {
+                const record = weightData[isUpdate ? existingIndex : weightData.length - 1];
+                const success = await saveDataToSupabase(record, isUpdate);
+                
+                if (!success) {
+                    alert('保存到远程数据库失败，数据仅保存在本地');
+                }
+            }
+            
+            alert('体重记录已保存！');
+            document.getElementById('weight').value = '';
+            
+            // 如果当前在查看数据页面，更新表格
+            if (document.getElementById('view').classList.contains('active')) {
+                renderDataTable();
+            }
+        });
+        
+        // 渲染数据表格
+        function renderDataTable() {
+            const member = document.querySelector('#view .toggle-option[data-view-member].active').getAttribute('data-view-member');
+            const tbody = document.getElementById('data-body');
+            tbody.innerHTML = '';
+            
+            let filteredData = [...weightData];
+            
+            // 筛选成员
+            if (member !== 'all') {
+                filteredData = filteredData.filter(entry => entry.member === member);
+            }
+            
+            // 排序数据
+            filteredData.sort((a, b) => {
+                if (currentSort === 'date-desc') {
+                    return new Date(b.date) - new Date(a.date);
+                } else if (currentSort === 'date-asc') {
+                    return new Date(a.date) - new Date(b.date);
+                } else if (currentSort === 'time-desc') {
+                    return b.time.localeCompare(a.time);
+                } else if (currentSort === 'time-asc') {
+                    return a.time.localeCompare(b.time);
+                }
+                return 0;
+            });
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无数据</td></tr>';
+                return;
+            }
+            
+            filteredData.forEach(entry => {
+                const row = document.createElement('tr');
+                
+                // 格式化日期显示
+                const dateObj = new Date(entry.date);
+                const formattedDate = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
+                
+                row.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${entry.time === 'morning' ? '早晨' : '晚上'}</td>
+                    <td>${entry.member}</td>
+                    <td>${entry.weight.toFixed(1)}</td>
+                    <td>
+                        <span class="action-btn edit" data-id="${entry.date}-${entry.time}-${entry.member}">编辑</span>
+                        <span class="action-btn delete" data-id="${entry.date}-${entry.time}-${entry.member}" data-db-id="${entry.id || ''}">删除</span>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // 添加编辑和删除事件监听
+            document.querySelectorAll('.edit').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    const [date, time, member] = id.split('-');
+                    
+                    // 找到对应记录并填充到表单
+                    const record = weightData.find(entry => 
+                        entry.date === date && entry.time === time && entry.member === member
+                    );
+                    
+                    if (record) {
+                        // 切换到记录标签页
+                        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                        
+                        document.querySelector('[data-tab="record"]').classList.add('active');
+                        document.getElementById('record').classList.add('active');
+                        
+                        // 填充表单
+                        document.querySelectorAll('#record .toggle-option[data-member]').forEach(opt => {
+                            opt.classList.remove('active');
+                            if (opt.getAttribute('data-member') === record.member) {
+                                opt.classList.add('active');
+                            }
+                        });
+                        
+                        document.getElementById('date').value = record.date;
+                        
+                        document.querySelectorAll('#record .toggle-option[data-time]').forEach(opt => {
+                            opt.classList.remove('active');
+                            if (opt.getAttribute('data-time') === record.time) {
+                                opt.classList.add('active');
+                            }
+                        });
+                        
+                        document.getElementById('weight').value = record.weight;
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.delete').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    if (confirm('确定要删除这条记录吗？')) {
+                        const id = this.getAttribute('data-id');
+                        const dbId = this.getAttribute('data-db-id');
+                        const [date, time, member] = id.split('-');
+                        
+                        // 如果有远程数据库ID，尝试从远程数据库删除
+                        if (supabase && dbId) {
+                            const success = await deleteDataFromSupabase(dbId);
+                            if (!success) {
+                                alert('从远程数据库删除记录失败，仅删除了本地记录');
+                            }
+                        }
+                        
+                        // 过滤掉要删除的记录
+                        weightData = weightData.filter(entry => 
+                            !(entry.date === date && entry.time === time && entry.member === member)
+                        );
+                        
+                        // 保存到localStorage
+                        localStorage.setItem('familyWeightData', JSON.stringify(weightData));
+                        
+                        // 重新渲染表格
+                        renderDataTable();
+                        
+                        // 如果图表页面是活动的，也更新图表
+                        if (document.getElementById('charts').classList.contains('active')) {
+                            renderChart();
+                        }
+                    }
+                });
+            });
+        }
+        
+        // 初始化图表
+        let weightChart = null;
+        
+        function renderChart() {
+            const range = parseInt(document.getElementById('chart-range').value);
+            const selectedMember = document.querySelector('#charts .toggle-option[data-chart-member].active').getAttribute('data-chart-member');
+            const weightType = document.querySelector('#charts .toggle-option[data-weight-type].active').getAttribute('data-weight-type');
+            
+            // 筛选数据
+            let filteredData = weightData;
+            if (selectedMember !== 'all') {
+                filteredData = weightData.filter(entry => entry.member === selectedMember);
+            }
+            
+            // 获取最近range天的日期范围
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - range);
+            
+            // 过滤在日期范围内的数据
+            filteredData = filteredData.filter(entry => {
+                const entryDate = new Date(entry.date);
+                return entryDate >= startDate && entryDate <= endDate;
+            });
+            
+            // 按日期排序
+            filteredData.sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            // 准备图表数据
+            const datasets = [];
+            
+            if (selectedMember === 'all') {
+                // 为每个成员创建数据集
+                const members = ['石', '远', '曲'];
+                const colors = ['#2575fc', '#6a11cb', '#ff4d4d'];
+                
+                members.forEach((member, index) => {
+                    const memberData = filteredData.filter(entry => entry.member === member);
+                    
+                    // 按日期分组
+                    const groupedData = {};
+                    memberData.forEach(entry => {
+                        if (!groupedData[entry.date]) {
+                            groupedData[entry.date] = {morning: null, evening: null};
+                        }
+                        groupedData[entry.date][entry.time] = entry.weight;
+                    });
+                    
+                    // 根据选择的体重类型准备数据
+                    const labels = Object.keys(groupedData).sort();
+                    const data = labels.map(date => {
+                        if (weightType === 'morning') {
+                            return groupedData[date].morning;
+                        } else if (weightType === 'evening') {
+                            return groupedData[date].evening;
+                        } else {
+                            // 平均体重
+                            const values = [groupedData[date].morning, groupedData[date].evening].filter(v => v !== null);
+                            return values.length > 0 ? (values.reduce((sum, weight) => sum + weight, 0) / values.length).toFixed(1) : null;
+                        }
+                    });
+                    
+                    datasets.push({
+                        label: member,
+                        data: data,
+                        borderColor: colors[index],
+                        backgroundColor: colors[index] + '20',
+                        tension: 0.3,
+                        fill: false
+                    });
+                });
+            } else {
+                // 单个成员的数据
+                const groupedData = {};
+                filteredData.forEach(entry => {
+                    if (!groupedData[entry.date]) {
+                        groupedData[entry.date] = {morning: null, evening: null};
+                    }
+                    groupedData[entry.date][entry.time] = entry.weight;
+                });
+                
+                // 根据选择的体重类型准备数据
+                const labels = Object.keys(groupedData).sort();
+                const data = labels.map(date => {
+                    if (weightType === 'morning') {
+                        return groupedData[date].morning;
+                    } else if (weightType === 'evening') {
+                        return groupedData[date].evening;
+                    } else {
+                        // 平均体重
+                        const values = [groupedData[date].morning, groupedData[date].evening].filter(v => v !== null);
+                        return values.length > 0 ? (values.reduce((sum, weight) => sum + weight, 0) / values.length).toFixed(1) : null;
+                    }
+                });
+                
+                datasets.push({
+                    label: selectedMember,
+                    data: data,
+                    borderColor: '#2575fc',
+                    backgroundColor: '#2575fc20',
+                    tension: 0.3,
+                    fill: false
+                });
+            }
+            
+            // 格式化日期标签
+            const labels = [...new Set(filteredData.map(entry => entry.date))].sort();
+            const formattedLabels = labels.map(date => {
+                const dateObj = new Date(date);
+                return `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
+            });
+            
+            // 获取canvas上下文
+            const ctx = document.getElementById('weight-chart').getContext('2d');
+            
+            // 如果已有图表，先销毁
+            if (weightChart) {
+                weightChart.destroy();
+            }
+            
+            // 创建新图表
+            weightChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: formattedLabels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '体重变化趋势 (斤)',
+                            font: {
+                                size: 16
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: '体重 (斤)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 事件监听：图表时间范围变化
+        document.getElementById('chart-range').addEventListener('change', renderChart);
+        
+        // 初始化页面
+        renderDataTable();
+        
+        // 如果没有数据，显示提示
+        if (weightData.length === 0) {
+            document.getElementById('data-body').innerHTML = '<tr><td colspan="5" style="text-align: center;">暂无数据，请先记录体重</td></tr>';
+        } else {
+            renderChart();
+        }
+    </script>
+</body>
+</html>
