@@ -513,7 +513,7 @@
                     date: item.date,
                     time: item.time_period,
                     member: item.member,
-                    weight: item.weight,
+                    weight: parseFloat(item.weight), // 将numeric转换为JavaScript数字
                     id: item.id
                 }));
                 
